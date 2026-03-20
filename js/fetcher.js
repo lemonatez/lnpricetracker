@@ -285,15 +285,22 @@ const Fetcher = (() => {
     console.log(`Rakuten API returned ${items.length} items (requested ${maxResults})`);
 
     return items.map((Item) => {
-      const m = (Item.salesDate || '').match(/(\d{4})\D*(\d{1,2})/);
+      // Parse Japanese date format: "2026 年 05 月 09 日頃" or "2026 年 03 月 10 日"
+      const salesDate = Item.salesDate || '';
+      const m = salesDate.match(/(\d{4}) 年 (\d{1,2}) 月 (\d{1,2}) 日/);
       const isbn = Item.isbn || '';
+      const year = m ? parseInt(m[1]) : null;
+      const month = m ? parseInt(m[2]) : null;
+      const day = m ? parseInt(m[3]) : 10;
 
       return {
-        itemCode: isbn || `rakuten-${Item.title}-${isbn}`,
+        itemCode: isbn || `rakuten-${Item.title}`,
         title: Item.title || '',
+        disp_author_name: Item.author || '',
         isbn,
-        year: m ? parseInt(m[1]) : null,
-        month: m ? parseInt(m[2]) : null,
+        year,
+        month,
+        release_date: year && month ? `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : null,
         price_tax_in: Item.itemPrice || 0,
         price: Math.floor((Item.itemPrice || 0) / 1.1),
         imageUrl: Item.mediumImageUrl || '',
