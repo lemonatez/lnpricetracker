@@ -92,19 +92,19 @@ const PageImport = (() => {
 
   async function fetchRakuten() {
     hideError('rakuten-error');
-    
+
     // Get credentials (stored in localStorage for security)
     let appId = document.getElementById('rakuten-app-id')?.value.trim();
     let accessKey = document.getElementById('rakuten-access-key')?.value.trim();
-    
+
     // Save to localStorage for convenience
     if (appId) localStorage.setItem('rakuten_app_id', appId);
     if (accessKey) localStorage.setItem('rakuten_access_key', accessKey);
-    
+
     // Load from localStorage if not entered
     if (!appId) appId = localStorage.getItem('rakuten_app_id') || '';
     if (!accessKey) accessKey = localStorage.getItem('rakuten_access_key') || '';
-    
+
     const releaseMonth = document.getElementById('rakuten-release-month')?.value.trim() || '';
     const maxResults = parseInt(document.getElementById('rakuten-max-results')?.value || '30');
 
@@ -115,20 +115,94 @@ const PageImport = (() => {
     try {
       document.getElementById('rakuten-btn').disabled = true;
       document.getElementById('rakuten-loading').style.display = '';
-      
+
       const books = await Fetcher.fetchRakuten({
         applicationId: appId,
         accessKey,
         releaseMonth,
         maxResults,
       });
-      
+
       if (books.length) {
         const count = Store.load(books);
         showSuccess(`Fetched ${count.toLocaleString()} books from Rakuten!`);
         _onDataLoaded?.();
       } else {
         showError('rakuten-error', 'No books found. Try adjusting your search parameters.');
+      }
+    } catch (e) {
+      showError('rakuten-error', e.message);
+    } finally {
+      document.getElementById('rakuten-btn').disabled = false;
+      document.getElementById('rakuten-loading').style.display = 'none';
+    }
+  }
+
+  async function fetchRakutenLatest() {
+    hideError('rakuten-error');
+
+    let appId = localStorage.getItem('rakuten_app_id') || '';
+    let accessKey = localStorage.getItem('rakuten_access_key') || '';
+
+    if (!appId || !accessKey) {
+      return showError('rakuten-error', 'Please enter Rakuten credentials first.');
+    }
+
+    // Get latest year/month from existing TSV data
+    const books = Store.books;
+    if (!books.length) {
+      return showError('rakuten-error', 'Please import TSV data first to determine the latest month.');
+    }
+
+    // Find latest year/month in store
+    let latestYear = 0;
+    let latestMonth = 0;
+    for (const b of books) {
+      if (b.year && b.month) {
+        if (b.year > latestYear || (b.year === latestYear && b.month > latestMonth)) {
+          latestYear = b.year;
+          latestMonth = b.month;
+        }
+      }
+    }
+
+    // Calculate next 2 months after latest
+    const nextMonths = [];
+    let curYear = latestYear;
+    let curMonth = latestMonth + 1;
+    for (let i = 0; i < 2; i++) {
+      if (curMonth > 12) {
+        curMonth = 1;
+        curYear++;
+      }
+      nextMonths.push({ year: curYear, month: curMonth });
+      curMonth++;
+    }
+
+    try {
+      document.getElementById('rakuten-btn').disabled = true;
+      document.getElementById('rakuten-loading').style.display = '';
+
+      // Fetch without month filter to get latest releases
+      const rakutenBooks = await Fetcher.fetchRakuten({
+        applicationId: appId,
+        accessKey,
+        maxResults: 30,
+      });
+
+      // Filter for the next 2 months after latest TSV month
+      const upcoming = rakutenBooks.filter(b =>
+        nextMonths.some(m => b.year === m.year && b.month === m.month)
+      );
+
+      if (upcoming.length) {
+        const count = Store.load(upcoming);
+        const monthLabels = nextMonths.map(m => `${m.year}-${String(m.month).padStart(2, '0')}`).join('/');
+        showSuccess(`Fetched ${count.toLocaleString()} books for ${monthLabels}!`);
+        _onDataLoaded?.();
+      } else {
+        const monthLabels = nextMonths.map(m => `${m.year}-${String(m.month).padStart(2, '0')}`).join('/');
+        showError('rakuten-error', `No books found for ${monthLabels}. Got ${rakutenBooks.length} total books from Rakuten.`);
       }
     } catch (e) {
       showError('rakuten-error', e.message);
@@ -176,5 +250,5 @@ const PageImport = (() => {
     if (el) { el.style.display = ''; el.textContent = '✓ ' + msg; setTimeout(() => { el.style.display = 'none'; }, 4000); }
   }
 
-  return { init, startFetch, stopFetch, importJSON, importTSV, fetchRakuten, saveRakutenCredentials, clearAll, onDataLoaded };
+  return { init, startFetch, stopFetch, importJSON, importTSV, fetchRakuten, fetchRakutenLatest, saveRakutenCredentials, clearAll, onDataLoaded };
 })();

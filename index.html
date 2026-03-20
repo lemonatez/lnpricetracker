@@ -587,6 +587,7 @@ or just the books array: [{itemCode:…},{…}]'></textarea>
 
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
         <button class="btn btn-gold" id="rakuten-btn" onclick="PageImport.fetchRakuten()">🔍 Fetch from Rakuten</button>
+        <button class="btn btn-ghost" onclick="PageImport.fetchRakutenLatest()" title="Fetches the next 2 months after your latest TSV data">📅 Fetch Next Months</button>
         <button class="btn btn-ghost" onclick="PageImport.saveRakutenCredentials()">💾 Save Credentials</button>
         <span id="rakuten-loading" style="display:none;font-family:var(--font-mono);font-size:11px;color:var(--muted)">Fetching…</span>
       </div>
@@ -596,7 +597,8 @@ or just the books array: [{itemCode:…},{…}]'></textarea>
         <strong style="color:var(--coral)">Credentials:</strong> Get your Application ID and Access Key at <a href="https://api.rakuten.net/" target="_blank" style="color:var(--gold)">Rakuten Developers</a>.<br>
         <strong style="color:var(--lime)">Security:</strong> Credentials are stored in your browser's localStorage only — never committed to GitHub.<br>
         <strong style="color:var(--teal)">Allowed websites:</strong> Add your GitHub Pages domain: <code style="color:var(--gold)">YOUR_USERNAME.github.io</code><br>
-        <strong style="color:var(--sky)">Genre:</strong> Uses 電撃文庫 genre (001017005004) — fetches latest releases sorted by newest first.
+        <strong style="color:var(--sky)">Genre:</strong> Uses 電撃文庫 genre (001017005004) — fetches latest releases sorted by newest first.<br>
+        <strong style="color:var(--gold)">Tip:</strong> Use <strong>"Fetch Next Months"</strong> button to automatically get upcoming months not in publisher data (calculates based on your latest TSV month).
       </div>
     </div>
 

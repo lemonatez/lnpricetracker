@@ -245,6 +245,7 @@ const Fetcher = (() => {
     booksGenreId = '001017005004',
     maxResults = 30,
     sort = '-releaseDate',
+    releaseMonth, // Optional: filter by YYYY-MM
   }) {
     if (!applicationId || !accessKey) {
       throw new Error('Rakuten requires applicationId + accessKey');
@@ -252,7 +253,7 @@ const Fetcher = (() => {
 
     const params = new URLSearchParams({
       applicationId,
-      accessKey, // ✅ REQUIRED FIX
+      accessKey,
       booksGenreId,
       page: '1',
       sort,
@@ -264,13 +265,10 @@ const Fetcher = (() => {
     const resp = await fetch(url, {
       headers: {
         "accessKey": accessKey,
-        // "Origin": document.location.origin || host_origin, // ✅ safer origin
         "Origin": "https://lemonatez.github.io/lnpricetracker/",
         "Referer": "https://lemonatez.github.io/lnpricetracker/",
       },
     });
-
-    // console.log(`Rakuten API response: ${resp.status} ${resp.statusText}`);
 
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
@@ -284,8 +282,7 @@ const Fetcher = (() => {
 
     console.log(`Rakuten API returned ${items.length} items (requested ${maxResults})`);
 
-    return items.map((Item) => {
-      // Parse Japanese date format: "2026 年 05 月 09 日頃" or "2026 年 03 月 10 日"
+    let books = items.map((Item) => {
       const salesDate = Item.salesDate || '';
       const m = salesDate.match(/(\d{4}) 年 (\d{1,2}) 月 (\d{1,2}) 日/);
       const isbn = Item.isbn || '';
@@ -307,6 +304,15 @@ const Fetcher = (() => {
         itemUrl: Item.itemUrl || '',
       };
     });
+
+    // Filter by release month if specified
+    if (releaseMonth) {
+      const [targetYear, targetMonth] = releaseMonth.split('-').map(Number);
+      books = books.filter(b => b.year === targetYear && b.month === targetMonth);
+      console.log(`Filtered to ${books.length} books for ${releaseMonth}`);
+    }
+
+    return books;
   }
 
   // ─────────────────────────────────────────────
