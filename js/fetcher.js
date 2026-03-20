@@ -264,11 +264,13 @@ const Fetcher = (() => {
     const resp = await fetch(url, {
       headers: {
         "accessKey": accessKey,
-        "Origin": document.location.origin || host_origin, // ✅ safer origin
+        // "Origin": document.location.origin || host_origin, // ✅ safer origin
+        "Origin": "https://lemonatez.github.io/lnpricetracker/",
+        "Referer": "https://lemonatez.github.io/lnpricetracker/",
       },
     });
 
-    console.log(`Rakuten API response: ${resp.status} ${resp.statusText}`);
+    // console.log(`Rakuten API response: ${resp.status} ${resp.statusText}`);
 
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
@@ -284,13 +286,16 @@ const Fetcher = (() => {
 
     return items.map((Item) => {
       const m = (Item.salesDate || '').match(/(\d{4})\D*(\d{1,2})/);
+      const isbn = Item.isbn || '';
 
       return {
+        itemCode: isbn || `rakuten-${Item.title}-${isbn}`,
         title: Item.title || '',
-        isbn: Item.isbn || '',
+        isbn,
         year: m ? parseInt(m[1]) : null,
         month: m ? parseInt(m[2]) : null,
         price_tax_in: Item.itemPrice || 0,
+        price: Math.floor((Item.itemPrice || 0) / 1.1),
         imageUrl: Item.mediumImageUrl || '',
         itemUrl: Item.itemUrl || '',
       };
