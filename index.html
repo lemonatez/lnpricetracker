@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>電撃文庫 Price Intelligence</title>
+<link rel="stylesheet" href="css/main.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <div class="label">電撃文庫 · Kadokawa</div>
+    <h1>Price<br><span>Intelligence</span></h1>
+  </div>
+
+  <div class="sidebar-data-status">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">No data loaded</span>
+    <span id="bookCount"></span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Analysis</div>
+    <button class="nav-link active" data-page="overview" onclick="nav(this)">
+      <span class="nav-icon">📊</span> Overview
+    </button>
+    <button class="nav-link" data-page="trend" onclick="nav(this)">
+      <span class="nav-icon">📈</span> Price Trends
+    </button>
+    <button class="nav-link" data-page="newvsequel" onclick="nav(this)">
+      <span class="nav-icon">🆚</span> New vs Sequel
+    </button>
+    <button class="nav-link" data-page="taxdist" onclick="nav(this)">
+      <span class="nav-icon">💴</span> Tax & Distribution
+    </button>
+    <button class="nav-link" data-page="yearly" onclick="nav(this)">
+      <span class="nav-icon">📅</span> Yearly Drill-down
+    </button>
+    <button class="nav-link" data-page="monthly" onclick="nav(this)">
+      <span class="nav-icon">📆</span> Monthly Growth
+    </button>
+
+    <div class="nav-section-label">Data</div>
+    <button class="nav-link" data-page="import" onclick="nav(this)">
+      <span class="nav-icon">📥</span> Import Data
+    </button>
+  </nav>
+
+  <div class="sidebar-footer">
+    電撃文庫 (label 330)<br>
+    Kadokawa product search API<br>
+    All prices in JPY
+  </div>
+</nav>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<main id="main">
+
+  <!-- ── OVERVIEW ── -->
+  <section class="page active" id="page-overview">
+    <div class="page-header">
+      <div class="page-title-block">
+        <div class="page-eyebrow">Dashboard</div>
+        <h2 class="page-title">Price Overview</h2>
+        <p class="page-desc">High-level summary across all 電撃文庫 releases. Load data via the Import page to begin.</p>
+      </div>
+    </div>
+
+    <div id="overview-empty" class="empty-view">
+      <div class="icon">📚</div>
+      <p>No data loaded yet.<br>Go to <strong>Import Data</strong> to fetch or paste the book catalogue.</p>
+    </div>
+
+    <div id="overview-content" style="display:none">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-label">Total Books</div><div class="kpi-value" id="kpi-total">—</div><div class="kpi-sub" id="kpi-range">—</div></div>
+        <div class="kpi"><div class="kpi-label">Avg Price (base)</div><div class="kpi-value" id="kpi-avg">—</div><div class="kpi-sub">excl. tax</div></div>
+        <div class="kpi"><div class="kpi-label">Median Price</div><div class="kpi-value" id="kpi-med">—</div><div class="kpi-sub">P50</div></div>
+        <div class="kpi"><div class="kpi-label">New Series Avg</div><div class="kpi-value" id="kpi-new">—</div><div class="kpi-sub">Vol. 1</div></div>
+        <div class="kpi"><div class="kpi-label">Sequel Avg</div><div class="kpi-value" id="kpi-seq">—</div><div class="kpi-sub">Vol. 2+</div></div>
+        <div class="kpi"><div class="kpi-label">Sequel Gap</div><div class="kpi-value" id="kpi-gap">—</div><div class="kpi-delta" id="kpi-gap"></div></div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card card-accent col-span-2">
+          <div class="card-title">Avg Price by Year</div>
+          <div class="card-subtitle">All books · New series · Sequels · Linear trend</div>
+          <div class="chart-wrap" style="height:280px"><canvas id="chart-trend"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card card-accent-indigo">
+          <div class="card-title">Price Distribution</div>
+          <div class="card-subtitle">Books per price point (all time)</div>
+          <div class="chart-wrap" style="height:230px"><canvas id="chart-dist"></canvas></div>
+        </div>
+        <div class="card card-accent-teal">
+          <div class="card-title">Recent Monthly Avg</div>
+          <div class="card-subtitle">Last 3 years, month by month</div>
+          <div class="chart-wrap" style="height:230px"><canvas id="chart-monthly"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card col-span-2">
+          <div class="card-title">Price Tier Mix Over Time</div>
+          <div class="card-subtitle">% of books in each price bracket per year (stacked)</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="chart-tier"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Auto Insights</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-top:8px" id="overview-insights"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PRICE TRENDS ── -->
+  <section class="page" id="page-trend">
+    <div class="page-header">
+      <div class="page-title-block">
+        <div class="page-eyebrow">Analysis · Deep Dive</div>
+        <h2 class="page-title">Price Trends</h2>
+        <p class="page-desc">Year-over-year movements, threshold crossings, inflation table, and monthly heatmap.</p>
+      </div>
+    </div>
+
+    <div id="trend-empty" class="empty-view"><div class="icon">📈</div><p>Load data first.</p></div>
+    <div id="trend-content" style="display:none">
+
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card card-accent col-span-2">
+          <div class="card-title">Year-over-Year Price Change</div>
+          <div class="card-subtitle">Annual delta in avg price (¥). Red = increase, teal = decrease.</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="chart-yoy"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card card-accent-indigo">
+          <div class="card-title">Price Threshold Adoption</div>
+          <div class="card-subtitle">% of books priced ≥ threshold per year</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="chart-breakpoints"></canvas></div>
+        </div>
+        <div class="card card-accent-coral">
+          <div class="card-title">Price by Volume Number</div>
+          <div class="card-subtitle">Avg price per volume number + count</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="chart-volume-price"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Monthly Price Heatmap</div>
+        <div class="card-subtitle" style="margin-bottom:16px">Avg base price per year × month. Dark teal = low, gold = mid, coral = high.</div>
+        <div class="heatmap" id="heatmap-wrap" style="overflow-x:auto;min-width:0;"></div>
+        <div style="margin-top:10px;font-size:11px;color:var(--muted);font-family:var(--font-mono);">Tip: Hover cells for exact value.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Annual Inflation Table</div>
+        <div class="card-subtitle" style="margin-bottom:16px">Newest first — average price, YoY change, % at ¥800+ and ¥880+</div>
+        <div class="scroll-body">
+          <table class="data-table">
+            <thead><tr>
+              <th>Year</th><th>Books</th><th>Avg Price</th><th>YoY Δ</th><th>YoY %</th><th>≥¥800</th><th>≥¥880</th>
+            </tr></thead>
+            <tbody id="inflation-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── NEW VS SEQUEL ── -->
+  <section class="page" id="page-newvsequel">
+    <div class="page-header">
+      <div class="page-title-block">
+        <div class="page-eyebrow">Analysis · Hypothesis</div>
+        <h2 class="page-title">New Series vs Sequels</h2>
+        <p class="page-desc">Deep dive into the price gap between first volumes and continuations. Tests your hypothesis directly.</p>
+      </div>
+    </div>
+
+    <div id="newvsequel-empty" class="empty-view"><div class="icon">🆚</div><p>Load data first.</p></div>
+    <div id="newvsequel-content" style="display:none">
+
+      <div class="card card-accent col-span-2" style="margin-bottom:16px">
+        <div class="card-title">Sequel–New Gap Over Time</div>
+        <div class="card-subtitle">Bar: sequel avg minus new avg (¥). Lines: actual price levels. Dashed: trend of gap.</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart-gap-time"></canvas></div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card card-accent-teal">
+          <div class="card-title">Price Curve by Volume</div>
+          <div class="card-subtitle">Avg price as series ages (vol 1 → 11+). Band = ±1 stddev.</div>
+          <div class="chart-wrap" style="height:250px"><canvas id="chart-vol-curve"></canvas></div>
+        </div>
+        <div class="card card-accent-indigo">
+          <div class="card-title">Median Price by Decade</div>
+          <div class="card-subtitle">New vs Sequel median comparison across eras</div>
+          <div class="chart-wrap" style="height:250px"><canvas id="chart-box"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card card-accent-coral">
+          <div class="card-title">First vs Final Volume</div>
+          <div class="card-subtitle">Did series get more expensive over time?</div>
+          <div class="chart-wrap" style="height:200px"><canvas id="chart-first-vs-last"></canvas></div>
+          <div style="display:grid;gap:8px;margin-top:14px" id="first-vs-last-stats"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Top Series by Price Increase</div>
+          <div class="card-subtitle" style="margin-bottom:12px">Series with biggest first→last volume price change</div>
+          <div class="scroll-body">
+            <table class="data-table">
+              <thead><tr>
+                <th>Series</th><th>Vols</th><th>Years</th><th>First</th><th>Last</th><th>Change</th><th>Avg</th>
+              </tr></thead>
+              <tbody id="series-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── TAX & DISTRIBUTION ── -->
+  <section class="page" id="page-taxdist">
+    <div class="page-header">
+      <div class="page-title-block">
+        <div class="page-eyebrow">Analysis · Tax & Pricing</div>
+        <h2 class="page-title">Tax &amp; Distribution</h2>
+        <p class="page-desc">How Japan's consumption tax changes shaped book pricing, and full distribution analysis.</p>
+      </div>
+    </div>
+
+    <div id="taxdist-empty" class="empty-view"><div class="icon">💴</div><p>Load data first.</p></div>
+    <div id="taxdist-content" style="display:none">
+
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card card-accent col-span-2">
+          <div class="card-title">Effective Tax Rate Over Time</div>
+          <div class="card-subtitle">Monthly avg tax rate vs. Japan's consumption tax changes (3% / 5% / 8% / 10%)</div>
+          <div class="chart-wrap" style="height:230px"><canvas id="chart-taxrate"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card card-accent-indigo">
+          <div class="card-title">Base vs Consumer Price</div>
+          <div class="card-subtitle">Annual avg — base, tax-included, and tax burden (right axis)</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="chart-base-vs-tax"></canvas></div>
+        </div>
+        <div class="card card-accent-teal">
+          <div class="card-title">Percentile Band</div>
+          <div class="card-subtitle">P10 / P25 / P50 / P75 / P90 price by year</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="chart-percentiles"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card card-accent-coral" style="margin-bottom:16px">
+        <div class="card-title">Price Distribution by Decade</div>
+        <div class="card-subtitle">% of books at each price bucket — shows how the centre of mass shifted over time</div>
+        <div class="chart-wrap" style="height:250px"><canvas id="chart-violin"></canvas></div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Tax Era Breakdown</div>
+        <div class="card-subtitle" style="margin-bottom:12px">Statistics per Japan consumption tax era</div>
+        <table class="data-table">
+          <thead><tr>
+            <th>Era</th><th>Tax Rate</th><th>Books</th><th>Avg</th><th>Median</th><th>Min</th><th>Max</th><th>Stddev</th>
+          </tr></thead>
+          <tbody id="tax-era-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Most Expensive Books</div>
+          <div class="card-subtitle" style="margin-bottom:10px">Top 15 highest-priced releases</div>
+          <div class="scroll-body">
+            <table class="data-table">
+              <thead><tr><th>Title</th><th>Year</th><th>Base</th><th>Incl. Tax</th><th>Type</th></tr></thead>
+              <tbody id="top-price-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Cheapest Books</div>
+          <div class="card-subtitle" style="margin-bottom:10px">Bottom 10 lowest-priced releases</div>
+          <div class="scroll-body">
+            <table class="data-table">
+              <thead><tr><th>Title</th><th>Year</th><th>Base</th><th>Incl. Tax</th><th>Type</th></tr></thead>
+              <tbody id="bot-price-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── YEARLY DRILL-DOWN ── -->
+  <section class="page" id="page-yearly">
+    <div class="page-header">
+      <div class="page-title-block">
+        <div class="page-eyebrow">Analysis · Deep Dive</div>
+        <h2 class="page-title">Yearly Drill-down</h2>
+        <p class="page-desc">Click on any year to inspect monthly breakdown and browse individual books.</p>
+      </div>
+    </div>
+
+    <div id="yearly-empty" class="empty-view"><div class="icon">📅</div><p>Load data first.</p></div>
+    <div id="yearly-content" style="display:none">
+
+      <div class="card card-accent" style="margin-bottom:16px">
+        <div class="card-title">Year Overview</div>
+        <div class="card-subtitle">Click a year or chart bar to drill down into monthly data</div>
+        <div id="year-selector" class="year-selector"></div>
+        <div class="chart-wrap" style="height:320px;margin-top:16px"><canvas id="chart-yearly"></canvas></div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card card-accent-indigo col-span-2">
+          <div class="card-title">Monthly Breakdown — <span id="selected-year-label"></span></div>
+          <div class="card-subtitle">Click a row to filter books by month</div>
+          <div class="scroll-body" id="month-table"></div>
+        </div>
+      </div>
+
+      <div class="card card-accent-teal" style="margin-bottom:16px">
+        <div class="card-title">Books by Release Date</div>
+        <div class="card-subtitle">Click any book to view details</div>
+        <div id="book-list" class="scroll-body" style="max-height:600px"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── MONTHLY GROWTH ── -->
+  <section class="page" id="page-monthly">
+    <div class="page-header">
+      <div class="page-title-block">
+        <div class="page-eyebrow">Analysis · Price Movement</div>
+        <h2 class="page-title">Monthly Price Growth</h2>
+        <p class="page-desc">Track price movements within each month: start price, highest, lowest, and average. Shows how prices evolved during each release period.</p>
+      </div>
+    </div>
+
+    <div id="monthly-empty" class="empty-view"><div class="icon">📆</div><p>Load data first.</p></div>
+    <div id="monthly-content" style="display:none">
+
+      <div class="card card-accent col-span-2" style="margin-bottom:16px">
+        <div class="card-title">Monthly Price Range &amp; Growth</div>
+        <div class="card-subtitle">Each month's start price (first release day), highest, lowest, and average price</div>
+        <div class="chart-wrap" style="height:320px"><canvas id="chart-monthly-growth"></canvas></div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card card-accent-indigo">
+          <div class="card-title">Start vs End of Month</div>
+          <div class="card-subtitle">First release price vs last release price each month</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="chart-monthly-start-end"></canvas></div>
+        </div>
+        <div class="card card-accent-coral">
+          <div class="card-title">Monthly Price Spread</div>
+          <div class="card-subtitle">Difference between highest and lowest price each month</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="chart-monthly-spread"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Monthly Statistics Table</div>
+        <div class="card-subtitle" style="margin-bottom:12px">Detailed breakdown by month — sorted by release date</div>
+        <div class="scroll-body">
+          <table class="data-table">
+            <thead><tr>
+              <th>Month</th>
+              <th>Releases</th>
+              <th>Start Price</th>
+              <th>Lowest</th>
+              <th>Highest</th>
+              <th>Average</th>
+              <th>Growth</th>
+              <th>Spread</th>
+            </tr></thead>
+            <tbody id="monthly-stats-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── BOOK DETAIL MODAL ── -->
+  <div id="book-modal" class="modal" onclick="if(event.target===this) PageYearly.closeModal()" style="display:none">
+    <div class="modal-content">
+      <button class="modal-close" onclick="PageYearly.closeModal()">×</button>
+      <div class="modal-body">
+        <div class="modal-cover">
+          <img id="modal-cover" src="" alt="">
+        </div>
+        <div class="modal-info">
+          <h3 id="modal-title" class="modal-title"></h3>
+          <div class="modal-meta">
+            <div class="meta-row"><span class="meta-label">Author:</span><span id="modal-author" class="meta-value"></span></div>
+            <div class="meta-row"><span class="meta-label">Price:</span><span id="modal-price" class="meta-value"></span></div>
+            <div class="meta-row"><span class="meta-label">Release:</span><span id="modal-release" class="meta-value"></span></div>
+            <div class="meta-row"><span class="meta-label">Series:</span><span id="modal-series" class="meta-value"></span></div>
+            <div class="meta-row"><span class="meta-label">ISBN:</span><span id="modal-isbn" class="meta-value"></span></div>
+            <div class="meta-row"><span class="meta-label">Genre:</span><span id="modal-subgenre" class="meta-value"></span></div>
+          </div>
+          <div class="modal-catchphrase" id="modal-catchphrase"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── IMPORT ── -->
+  <section class="page" id="page-import">
+    <div class="page-header">
+      <div class="page-title-block">
+        <div class="page-eyebrow">Data Source</div>
+        <h2 class="page-title">Import Data</h2>
+        <p class="page-desc">Fetch live from the Kadokawa API or paste collected JSON. Data is merged &amp; deduplicated automatically.</p>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:16px;align-items:start">
+
+      <!-- Live fetch -->
+      <div class="card card-accent">
+        <div class="card-title">⚡ Live Fetch</div>
+        <div class="card-subtitle" style="margin-bottom:20px">Auto-paginate the Kadokawa API</div>
+
+        <div style="display:grid;gap:14px;margin-bottom:20px">
+          <div class="filter-group">
+            <label class="input-label">Page size</label>
+            <select id="cfg-size" class="input">
+              <option value="50">50 / page</option>
+              <option value="100" selected>100 / page</option>
+              <option value="200">200 / page</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="input-label">Max pages</label>
+            <input id="cfg-maxpages" type="number" class="input" value="60" min="1" max="200" style="width:120px">
+          </div>
+          <div class="filter-group">
+            <label class="input-label">Delay between requests (ms)</label>
+            <input id="cfg-delay" type="number" class="input" value="300" min="100" max="3000" step="50" style="width:120px">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn btn-gold" id="fetch-btn" onclick="PageImport.startFetch()">▶ Start Fetch</button>
+          <button class="btn btn-danger" id="stop-btn" style="display:none" onclick="PageImport.stopFetch()">■ Stop</button>
+        </div>
+
+        <div id="fetch-progress" style="display:none">
+          <div class="progress-track"><div class="progress-fill" id="fetch-fill"></div></div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-top:4px">
+            <span id="fetch-label">Fetching…</span>
+            <span id="fetch-count"></span>
+          </div>
+        </div>
+        <div class="error-bar" id="fetch-error"></div>
+
+        <div style="margin-top:16px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-family:var(--font-mono);font-size:11px;color:var(--text2);line-height:1.8">
+          <strong style="color:var(--gold)">CORS note:</strong> Browsers may block cross-origin POST requests to kadokawa.co.jp.<br>
+          If you see an error, use the curl command below and paste the results →
+        </div>
+      </div>
+
+      <!-- JSON import -->
+      <div class="card card-accent-indigo">
+        <div class="card-title">📋 Paste JSON</div>
+        <div class="card-subtitle" style="margin-bottom:16px">Import collected pages manually</div>
+
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:14px;padding:12px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">
+          Collect pages with curl:<br>
+          <code style="color:var(--teal);display:block;margin-top:6px;word-break:break-all">curl -s -X POST "https://www.kadokawa.co.jp/product/search/" \<br>
+  -H "Content-Type: application/x-www-form-urlencoded" \<br>
+  -d "pageno=1&pageno_book=1&size=100&mgenre=86&label=330"</code><br>
+          Paste one response, multiple responses in an array <code style="color:var(--gold)">[…, …]</code>, or an array of book objects.
+        </div>
+
+        <textarea id="json-input" class="input" rows="8" style="width:100%;resize:vertical;font-size:11px;line-height:1.5"
+          placeholder='{"count_raw":{…},"result":{"all":[…],"book":[…]}}
+or paste multiple: [{…},{…}]
+or just the books array: [{itemCode:…},{…}]'></textarea>
+
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-gold" onclick="PageImport.importJSON()">📥 Import</button>
+        </div>
+        <div class="error-bar" id="import-error" style="margin-top:10px"></div>
+      </div>
+
+      <!-- TSV import -->
+      <div class="card card-accent-teal">
+        <div class="card-title">📄 Paste TSV / Tabular Data</div>
+        <div class="card-subtitle" style="margin-bottom:16px">Import from spreadsheet (レーベル，発売月，発売日，タイトル，著者，イラスト，定価，ISBN)</div>
+
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:14px;padding:12px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">
+          Only <strong>レーベル = 1</strong> (電撃文庫) records will be imported.<br>
+          Paste tab-separated values with header row. Price growth tracking (start/high/low per month) will be auto-calculated.
+        </div>
+
+        <textarea id="tsv-input" class="input" rows="8" style="width:100%;resize:vertical;font-size:11px;line-height:1.5"
+          placeholder='レーベル	発売月	発売日	タイトル	著者	イラスト	定価	ISBN
+1	2026 年 3 月刊	10	タイトル	著者	イラスト	814	978-4-04-916717-7
+1	2026 年 2 月刊	10	タイトル 2	著者 2	イラスト 2	792	978-4-04-916654-5'></textarea>
+
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-gold" onclick="PageImport.importTSV()">📥 Import TSV</button>
+          <button class="btn btn-ghost" onclick="PageImport.clearAll()">🗑 Clear all data</button>
+        </div>
+        <div class="error-bar" id="tsv-error" style="margin-top:10px;display:none"></div>
+      </div>
+    </div>
+
+    <!-- Rakuten API -->
+    <div class="card card-accent-coral" style="margin-top:16px">
+      <div class="card-title">🔍 Rakuten Books API</div>
+      <div class="card-subtitle" style="margin-bottom:16px">Fetch latest releases directly from Rakuten — useful for upcoming months not yet in publisher data</div>
+
+      <div style="display:grid;gap:14px;margin-bottom:16px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+        <div class="filter-group">
+          <label class="input-label">Application ID <span style="color:var(--muted)">(required)</span></label>
+          <input id="rakuten-app-id" type="text" class="input" placeholder="Your Rakuten App ID">
+        </div>
+        <div class="filter-group">
+          <label class="input-label">Keyword</label>
+          <input id="rakuten-keyword" type="text" class="input" value="電撃文庫">
+        </div>
+        <div class="filter-group">
+          <label class="input-label">Publisher</label>
+          <input id="rakuten-publisher" type="text" class="input" value="KADOKAWA">
+        </div>
+        <div class="filter-group">
+          <label class="input-label">Release Month (YYYY-MM)</label>
+          <input id="rakuten-release-month" type="text" class="input" placeholder="2026-04" pattern="\d{4}-\d{2}">
+        </div>
+        <div class="filter-group">
+          <label class="input-label">Max Results</label>
+          <input id="rakuten-max-results" type="number" class="input" value="100" min="1" max="100">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-gold" id="rakuten-btn" onclick="PageImport.fetchRakuten()">🔍 Fetch from Rakuten</button>
+        <span id="rakuten-loading" style="display:none;font-family:var(--font-mono);font-size:11px;color:var(--muted)">Fetching…</span>
+      </div>
+      <div class="error-bar" id="rakuten-error" style="margin-top:10px;display:none"></div>
+
+      <div style="margin-top:14px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-family:var(--font-mono);font-size:11px;color:var(--text2);line-height:1.7">
+        <strong style="color:var(--coral)">Note:</strong> Get your free Application ID at <a href="https://api.rakuten.net/" target="_blank" style="color:var(--gold)">Rakuten Developers</a>.<br>
+        Prices from Rakuten are tax-included (10%), automatically converted to base price.
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">Data Status</div>
+      <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap" id="data-status-grid">
+        <div class="kpi" style="flex:1;min-width:130px"><div class="kpi-label">Books Loaded</div><div class="kpi-value" id="ds-count">0</div></div>
+        <div class="kpi" style="flex:1;min-width:130px"><div class="kpi-label">Year Range</div><div class="kpi-value" id="ds-range">—</div></div>
+        <div class="kpi" style="flex:1;min-width:130px"><div class="kpi-label">New Series</div><div class="kpi-value" id="ds-new">—</div></div>
+        <div class="kpi" style="flex:1;min-width:130px"><div class="kpi-label">Sequels</div><div class="kpi-value" id="ds-seq">—</div></div>
+        <div class="kpi" style="flex:1;min-width:130px"><div class="kpi-label">Unique Series</div><div class="kpi-value" id="ds-series">—</div></div>
+      </div>
+      <div class="error-bar" style="background:rgba(163,230,53,0.1);border-color:rgba(163,230,53,0.3);color:var(--lime);display:none;margin-top:12px" id="success-msg"></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="js/data.js"></script>
+<script src="js/fetcher.js"></script>
+<script src="js/page-overview.js"></script>
+<script src="js/page-trend.js"></script>
+<script src="js/page-newvsequel.js"></script>
+<script src="js/page-taxdist.js"></script>
+<script src="js/page-yearly.js"></script>
+<script src="js/page-monthly.js"></script>
+<script src="js/page-import.js"></script>
+<script>
+
+// ═══════════════════════════════════════════════════════
+//  APP CONTROLLER
+// ═══════════════════════════════════════════════════════
+
+const pages = {
+  overview:   { module: PageOverview,   empty: 'overview-empty',   content: 'overview-content' },
+  trend:      { module: PageTrend,      empty: 'trend-empty',      content: 'trend-content' },
+  newvsequel: { module: PageNewVsSequel,empty: 'newvsequel-empty', content: 'newvsequel-content' },
+  taxdist:    { module: PageTaxDist,    empty: 'taxdist-empty',    content: 'taxdist-content' },
+  yearly:     { module: PageYearly,     empty: 'yearly-empty',     content: 'yearly-content' },
+  monthly:    { module: PageMonthly,    empty: 'monthly-empty',    content: 'monthly-content' },
+  import:     { module: null,           empty: null,               content: null },
+};
+
+let currentPage = 'overview';
+
+function nav(btn) {
+  const page = btn.dataset.page;
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page)?.classList.add('active');
+  currentPage = page;
+  renderPage(page);
+}
+
+function renderPage(page) {
+  const books = Store.books;
+  const cfg = pages[page];
+  if (!cfg || !cfg.module) return;
+
+  const hasData = books.length > 0;
+  if (cfg.empty)   document.getElementById(cfg.empty)  ?.style.setProperty('display', hasData ? 'none' : '');
+  if (cfg.content) document.getElementById(cfg.content)?.style.setProperty('display', hasData ? '' : 'none');
+
+  if (hasData) cfg.module.render(books);
+}
+
+function renderAll() {
+  updateDataStatus();
+  renderPage(currentPage);
+}
+
+function updateDataStatus() {
+  const books = Store.books;
+  const dot   = document.getElementById('statusDot');
+  const txt   = document.getElementById('statusText');
+  const cnt   = document.getElementById('bookCount');
+
+  if (!books.length) {
+    dot.className = 'status-dot';
+    txt.textContent = 'No data';
+    cnt.textContent = '';
+  } else {
+    dot.className = 'status-dot live';
+    txt.textContent = 'Data loaded';
+    cnt.textContent = books.length.toLocaleString() + ' books';
+  }
+
+  // Import page stats
+  const years   = books.map(b => b.year).filter(Boolean);
+  const newBks  = books.filter(b => !b.sequel);
+  const seqBks  = books.filter(b => b.sequel);
+  const uniqSer = new Set(books.map(b => b.series)).size;
+
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('ds-count',  books.length.toLocaleString());
+  set('ds-range',  years.length ? `${Math.min(...years)}–${Math.max(...years)}` : '—');
+  set('ds-new',    newBks.length.toLocaleString());
+  set('ds-seq',    seqBks.length.toLocaleString());
+  set('ds-series', uniqSer.toLocaleString());
+}
+
+// Wire up import callbacks
+PageImport.onDataLoaded(renderAll);
+PageImport.init();
+
+// Subscribe to store changes
+Store.subscribe(renderAll);
+
+// Initial status
+updateDataStatus();
+
+</script>
+</body>
+</html>
