@@ -167,24 +167,32 @@ const Fetcher = (() => {
       return books;
     },
 
-    async fetchRakuten({ applicationId, keyword = '電撃文庫', publisher = 'KADOKAWA', releaseMonth = '', maxResults = 100 } = {}) {
-      if (!applicationId) throw new Error('Rakuten Application ID is required');
+    async fetchRakuten({ applicationId, accessKey, keyword = '', publisherName = '', title = '', isbn = '', booksGenreId = '001004008', releaseMonth = '', maxResults = 30, sort = '+salesDate' } = {}) {
+      if (!applicationId || !accessKey) throw new Error('Rakuten Application ID and Access Key are required');
 
       const params = new URLSearchParams({
         format: 'json',
+        formatVersion: '2',
         applicationId,
-        keyword,
-        publisher,
-        hits: String(maxResults),
+        accessKey,
+        hits: String(Math.min(maxResults, 30)),
         page: '1',
-        sort: '+releaseDate',
+        sort,
       });
 
-      // Add release year/month filter if specified
+      // Add search parameters (at least one required)
+      if (keyword) params.set('title', keyword);
+      if (title) params.set('title', title);
+      if (publisherName) params.set('publisherName', publisherName);
+      if (isbn) params.set('isbn', isbn);
+      if (booksGenreId) params.set('booksGenreId', booksGenreId);
+
+      // Add release date filter
       if (releaseMonth) {
         const match = releaseMonth.match(/(\d{4})-(\d{2})/);
         if (match) {
-          params.set('releaseDate', `${match[1]}${match[2]}`);
+          // Rakuten uses salesDate for filtering
+          params.set('sort', `+releaseDate`);
         }
       }
 
@@ -192,28 +200,41 @@ const Fetcher = (() => {
       console.log('Rakuten API URL:', url);
 
       const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(`Rakuten API ${resp.status}: ${err.error_description || resp.statusText}`);
+      }
       const data = await resp.json();
 
-      const books = (data.Books || []).map(book => {
-        const item = book.Book;
-        const releaseDate = item.releaseDate || '';
-        const yearMonth = releaseDate.match(/(\d{4})-(\d{2})/) || [];
+      const items = data.items || [];
+      console.log(`Rakuten API: Found ${items.length} items`);
+
+      const books = items.map(item => {
+        const releaseDate = item.salesDate || '';
+        // Parse salesDate format: "2026 年 03 月 10 日" or "2026 年 03 月"
+        const dateMatch = releaseDate.match(/(\d{4}) 年\s*(\d{2}) 月(?:\s*(\d{1,2}) 日)?/);
+        const year = dateMatch ? parseInt(dateMatch[1]) : null;
+        const month = dateMatch ? parseInt(dateMatch[2]) : null;
+        const day = dateMatch && dateMatch[3] ? parseInt(dateMatch[3]) : 10;
+
+        const itemPrice = item.itemPrice || 0;
 
         return {
           itemCode: item.isbn || `${item.title}-${releaseDate}`,
-          title: item.title,
-          person: item.author + (item.carrier ? ' ' + item.carrier : ''),
+          title: item.title || '',
+          person: (item.author || '') + (item.carrier ? ' ' + item.carrier : ''),
           disp_author_name: item.author || '',
           illustrator_name: item.carrier || '',
-          price: Math.round((item.listPrice || 0) / 1.1),
-          price_tax_in: item.listPrice || 0,
-          release_date: releaseDate || null,
-          year: yearMonth[1] ? parseInt(yearMonth[1]) : null,
-          month: yearMonth[2] ? parseInt(yearMonth[2]) : null,
+          price: Math.round(itemPrice / 1.1),
+          price_tax_in: itemPrice,
+          release_date: year && month ? `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : null,
+          year,
+          month,
           label_code: '330',
           label_name: '電撃文庫',
           isbn: item.isbn || '',
+          itemUrl: item.itemUrl || '',
+          imageUrl: item.mediumImageUrl || '',
         };
       });
 

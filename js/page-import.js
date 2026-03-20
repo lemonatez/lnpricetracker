@@ -24,6 +24,9 @@ const PageImport = (() => {
           : ''));
       resetFetch();
     });
+
+    // Load saved Rakuten credentials
+    loadRakutenCredentials();
   }
 
   async function startFetch() {
@@ -88,13 +91,28 @@ const PageImport = (() => {
 
   async function fetchRakuten() {
     hideError('rakuten-error');
-    const appId = document.getElementById('rakuten-app-id')?.value.trim();
-    const keyword = document.getElementById('rakuten-keyword')?.value.trim() || '電撃文庫';
-    const publisher = document.getElementById('rakuten-publisher')?.value.trim() || 'KADOKAWA';
+    
+    // Get credentials (stored in localStorage for security)
+    let appId = document.getElementById('rakuten-app-id')?.value.trim();
+    let accessKey = document.getElementById('rakuten-access-key')?.value.trim();
+    
+    // Save to localStorage for convenience
+    if (appId) localStorage.setItem('rakuten_app_id', appId);
+    if (accessKey) localStorage.setItem('rakuten_access_key', accessKey);
+    
+    // Load from localStorage if not entered
+    if (!appId) appId = localStorage.getItem('rakuten_app_id') || '';
+    if (!accessKey) accessKey = localStorage.getItem('rakuten_access_key') || '';
+    
+    const keyword = document.getElementById('rakuten-keyword')?.value.trim() || '';
+    const publisher = document.getElementById('rakuten-publisher')?.value.trim() || '';
     const releaseMonth = document.getElementById('rakuten-release-month')?.value.trim() || '';
-    const maxResults = parseInt(document.getElementById('rakuten-max-results')?.value || '100');
+    const maxResults = parseInt(document.getElementById('rakuten-max-results')?.value || '30');
+    const booksGenreId = document.getElementById('rakuten-genre-id')?.value.trim() || '001004008';
 
-    if (!appId) return showError('rakuten-error', 'Rakuten Application ID is required');
+    if (!appId || !accessKey) {
+      return showError('rakuten-error', 'Rakuten Application ID and Access Key are required. Get them from https://api.rakuten.net/');
+    }
 
     try {
       document.getElementById('rakuten-btn').disabled = true;
@@ -102,8 +120,10 @@ const PageImport = (() => {
       
       const books = await Fetcher.fetchRakuten({
         applicationId: appId,
+        accessKey,
         keyword,
-        publisher,
+        publisherName: publisher,
+        booksGenreId,
         releaseMonth,
         maxResults,
       });
@@ -112,6 +132,8 @@ const PageImport = (() => {
         const count = Store.load(books);
         showSuccess(`Fetched ${count.toLocaleString()} books from Rakuten!`);
         _onDataLoaded?.();
+      } else {
+        showError('rakuten-error', 'No books found. Try adjusting your search parameters.');
       }
     } catch (e) {
       showError('rakuten-error', e.message);
@@ -119,6 +141,23 @@ const PageImport = (() => {
       document.getElementById('rakuten-btn').disabled = false;
       document.getElementById('rakuten-loading').style.display = 'none';
     }
+  }
+
+  function saveRakutenCredentials() {
+    const appId = document.getElementById('rakuten-app-id')?.value.trim();
+    const accessKey = document.getElementById('rakuten-access-key')?.value.trim();
+    if (appId) localStorage.setItem('rakuten_app_id', appId);
+    if (accessKey) localStorage.setItem('rakuten_access_key', accessKey);
+    showSuccess('Credentials saved to browser storage.');
+  }
+
+  function loadRakutenCredentials() {
+    const appId = localStorage.getItem('rakuten_app_id') || '';
+    const accessKey = localStorage.getItem('rakuten_access_key') || '';
+    const appIdEl = document.getElementById('rakuten-app-id');
+    const accessKeyEl = document.getElementById('rakuten-access-key');
+    if (appIdEl && appId) appIdEl.value = appId;
+    if (accessKeyEl && accessKey) accessKeyEl.value = accessKey;
   }
 
   function clearAll() {
