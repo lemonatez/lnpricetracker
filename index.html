@@ -564,7 +564,7 @@ or just the books array: [{itemCode:…},{…}]'></textarea>
     <!-- Rakuten API -->
     <div class="card card-accent-coral" style="margin-top:16px">
       <div class="card-title">🔍 Rakuten Books API</div>
-      <div class="card-subtitle" style="margin-bottom:16px">Fetch latest releases directly from Rakuten — useful for upcoming months not yet in publisher data</div>
+      <div class="card-subtitle" style="margin-bottom:16px">Fetch latest releases directly from Rakuten — useful for upcoming months (April, May) not yet in publisher data</div>
 
       <div style="display:grid;gap:14px;margin-bottom:16px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
         <div class="filter-group">
@@ -576,20 +576,8 @@ or just the books array: [{itemCode:…},{…}]'></textarea>
           <input id="rakuten-access-key" type="text" class="input" placeholder="Your Access Key">
         </div>
         <div class="filter-group">
-          <label class="input-label">Keyword / Title</label>
-          <input id="rakuten-keyword" type="text" class="input" placeholder="電撃文庫">
-        </div>
-        <div class="filter-group">
-          <label class="input-label">Publisher</label>
-          <input id="rakuten-publisher" type="text" class="input" placeholder="KADOKAWA">
-        </div>
-        <div class="filter-group">
           <label class="input-label">Release Month (YYYY-MM)</label>
-          <input id="rakuten-release-month" type="text" class="input" placeholder="2026-04" pattern="\d{4}-\d{2}">
-        </div>
-        <div class="filter-group">
-          <label class="input-label">Genre ID</label>
-          <input id="rakuten-genre-id" type="text" class="input" value="001004008" title="Light novels genre">
+          <input id="rakuten-release-month" type="text" class="input" placeholder="2026-05" pattern="\d{4}-\d{2}">
         </div>
         <div class="filter-group">
           <label class="input-label">Max Results</label>
@@ -606,8 +594,9 @@ or just the books array: [{itemCode:…},{…}]'></textarea>
 
       <div style="margin-top:14px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-family:var(--font-mono);font-size:11px;color:var(--text2);line-height:1.7">
         <strong style="color:var(--coral)">Credentials:</strong> Get your Application ID and Access Key at <a href="https://api.rakuten.net/" target="_blank" style="color:var(--gold)">Rakuten Developers</a>.<br>
-        <strong style="color:var(--lime)">Security:</strong> Credentials are stored in your browser's localStorage only — never committed to GitHub or sent to any server except Rakuten API.<br>
-        <strong style="color:var(--teal)">Allowed websites:</strong> Add your GitHub Pages domain to Rakuten's allowed list: <code style="color:var(--gold)">YOUR_USERNAME.github.io</code>
+        <strong style="color:var(--lime)">Security:</strong> Credentials are stored in your browser's localStorage only — never committed to GitHub.<br>
+        <strong style="color:var(--teal)">Allowed websites:</strong> Add your GitHub Pages domain: <code style="color:var(--gold)">YOUR_USERNAME.github.io</code><br>
+        <strong style="color:var(--sky)">Genre:</strong> Uses 電撃文庫 genre (001017005004) — fetches latest releases sorted by newest first.
       </div>
     </div>
 

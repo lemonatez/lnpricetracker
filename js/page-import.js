@@ -79,7 +79,8 @@ const PageImport = (() => {
     const raw = document.getElementById('tsv-input')?.value.trim();
     if (!raw) return showError('tsv-error', 'Paste TSV data first');
     try {
-      const books = Fetcher.parseTSV(raw);
+      const parsed = Fetcher.parseTSV(raw);       // returns { books, latest, next }
+      const books = parsed.books || [];           // extract array
       const count = Store.load(books);
       showSuccess(`Imported ${count.toLocaleString()} books from TSV!`);
       document.getElementById('tsv-input').value = '';
@@ -104,11 +105,8 @@ const PageImport = (() => {
     if (!appId) appId = localStorage.getItem('rakuten_app_id') || '';
     if (!accessKey) accessKey = localStorage.getItem('rakuten_access_key') || '';
     
-    const keyword = document.getElementById('rakuten-keyword')?.value.trim() || '';
-    const publisher = document.getElementById('rakuten-publisher')?.value.trim() || '';
     const releaseMonth = document.getElementById('rakuten-release-month')?.value.trim() || '';
     const maxResults = parseInt(document.getElementById('rakuten-max-results')?.value || '30');
-    const booksGenreId = document.getElementById('rakuten-genre-id')?.value.trim() || '001004008';
 
     if (!appId || !accessKey) {
       return showError('rakuten-error', 'Rakuten Application ID and Access Key are required. Get them from https://api.rakuten.net/');
@@ -121,9 +119,6 @@ const PageImport = (() => {
       const books = await Fetcher.fetchRakuten({
         applicationId: appId,
         accessKey,
-        keyword,
-        publisherName: publisher,
-        booksGenreId,
         releaseMonth,
         maxResults,
       });
@@ -181,5 +176,5 @@ const PageImport = (() => {
     if (el) { el.style.display = ''; el.textContent = '✓ ' + msg; setTimeout(() => { el.style.display = 'none'; }, 4000); }
   }
 
-  return { init, startFetch, stopFetch, importJSON, importTSV, fetchRakuten, clearAll, onDataLoaded };
+  return { init, startFetch, stopFetch, importJSON, importTSV, fetchRakuten, saveRakutenCredentials, clearAll, onDataLoaded };
 })();
